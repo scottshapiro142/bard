@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-import { ViktorProvider } from "@/lib/viktor/store";
+import { LoomProvider } from "@/lib/loom/store";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Viktor — Your AI employee",
+  title: "Loom — Interview in. Graph out.",
   description:
-    "Not a tool. A hire. Viktor is an AI employee that does the work — building dashboards and apps, writing code, running automations across 3,200+ tools.",
+    "Loom interviews you about the app you're designing, compiles the answers into a workflow graph, runs the reviews in parallel, and hands back a prioritized, build-ready spec.",
 };
 
 export default function RootLayout({
@@ -31,7 +31,7 @@ export default function RootLayout({
       className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-background text-foreground">
-        <ViktorProvider>{children}</ViktorProvider>
+        <LoomProvider>{children}</LoomProvider>
       </body>
     </html>
   );
