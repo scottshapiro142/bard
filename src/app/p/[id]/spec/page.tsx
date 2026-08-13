@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Check, Copy, Download, FileText } from "lucide-react";
+import { ArrowRight, Check, Copy, Download, FileText } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useLoom } from "@/lib/loom/store";
@@ -71,7 +72,8 @@ export default function SpecPage() {
 
   return (
     <div className="space-y-8">
-      <div>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
         <h1 className="text-2xl font-semibold tracking-tight">
           {project.name}
         </h1>
@@ -89,6 +91,13 @@ export default function SpecPage() {
             reviews
           </span>
         </div>
+        </div>
+        <Button asChild size="lg" className="gap-2" data-testid="go-to-build">
+          <Link href={`/p/${project.id}/build`}>
+            Turn this into a build
+            <ArrowRight className="size-4" />
+          </Link>
+        </Button>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">

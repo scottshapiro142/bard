@@ -3,7 +3,14 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Check, MessagesSquare, Network, Play, FileText } from "lucide-react";
+import {
+  Check,
+  MessagesSquare,
+  Network,
+  Play,
+  FileText,
+  Hammer,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { LoomWordmark } from "@/components/loom-logo";
@@ -19,12 +26,14 @@ const STAGES: {
   { key: "graph", label: "Graph", icon: Network },
   { key: "run", label: "Run", icon: Play },
   { key: "spec", label: "Spec", icon: FileText },
+  { key: "build", label: "Build", icon: Hammer },
 ];
 
 function stageAvailable(stage: Stage, project: Project): boolean {
   if (stage === "interview") return true;
   if (stage === "graph") return project.interviewComplete && !!project.graph;
   if (stage === "run") return project.interviewComplete && !!project.graph;
+  // Spec and Build both need a finished run behind them.
   return !!project.run?.finishedAt;
 }
 
@@ -32,6 +41,7 @@ function stageComplete(stage: Stage, project: Project): boolean {
   if (stage === "interview") return project.interviewComplete;
   if (stage === "graph") return !!project.graph && !!project.run;
   if (stage === "run") return !!project.run?.finishedAt;
+  if (stage === "spec") return Object.keys(project.taskStatus).length > 0;
   return false;
 }
 

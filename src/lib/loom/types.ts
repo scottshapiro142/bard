@@ -88,7 +88,50 @@ export interface LogLine {
   level: "info" | "done" | "start";
 }
 
-export type Stage = "interview" | "graph" | "run" | "spec";
+export type Stage = "interview" | "graph" | "run" | "spec" | "build";
+
+export type MilestoneId =
+  | "decide"
+  | "foundation"
+  | "core"
+  | "states"
+  | "harden";
+
+export type TaskKind = "decide" | "design" | "build";
+export type TaskSize = "S" | "M" | "L";
+export type TaskStatus = "todo" | "doing" | "done";
+
+export interface Milestone {
+  id: MilestoneId;
+  title: string;
+  blurb: string;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  detail: string;
+  milestone: MilestoneId;
+  kind: TaskKind;
+  size: TaskSize;
+  /** A fix the reviews asked for, or a piece of the build itself. */
+  source: "finding" | "plan";
+  /** Review that raised it, for finding-derived tasks. */
+  from?: string;
+  severity?: Severity;
+  /** Primary concern — what links a task to the decisions that gate it. */
+  tag: string;
+  blockedBy: string[];
+}
+
+/** A file the scaffold generates. */
+export interface ScaffoldFile {
+  path: string;
+  language: "ts" | "tsx" | "md";
+  /** Why this file looks the way it does, traced back to a review. */
+  because: string;
+  contents: string;
+}
 
 export interface Project {
   id: string;
@@ -101,6 +144,8 @@ export interface Project {
   interviewComplete: boolean;
   graph: Graph | null;
   run: RunState | null;
+  /** Task id -> status. Absent means todo. */
+  taskStatus: Record<string, TaskStatus>;
 }
 
 export interface LoomState {

@@ -5,7 +5,13 @@ import * as React from "react";
 import { compileGraph } from "./compile";
 import { firstSentence } from "./brief";
 import { EXAMPLE_ANSWERS } from "./example";
-import type { Answers, LoomState, Project, RunState } from "./types";
+import type {
+  Answers,
+  LoomState,
+  Project,
+  RunState,
+  TaskStatus,
+} from "./types";
 
 const STORAGE_KEY = "loom-state-v1";
 
@@ -33,6 +39,7 @@ function blankProject(answers: Answers = {}): Project {
     interviewComplete: false,
     graph: null,
     run: null,
+    taskStatus: {},
   };
 }
 
@@ -46,6 +53,8 @@ interface LoomContextValue extends LoomState {
   setCursor: (id: string, cursor: number) => void;
   compile: (id: string) => void;
   setRun: (id: string, run: RunState | null) => void;
+  setTaskStatus: (id: string, taskId: string, status: TaskStatus) => void;
+  resetTasks: (id: string) => void;
 }
 
 const LoomContext = React.createContext<LoomContextValue | null>(null);
@@ -63,7 +72,13 @@ export function LoomProvider({ children }: { children: React.ReactNode }) {
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<LoomState>;
         if (Array.isArray(parsed.projects)) {
-          setState({ projects: parsed.projects });
+          // taskStatus arrived after the first release; older saves lack it.
+          setState({
+            projects: parsed.projects.map((p) => ({
+              ...p,
+              taskStatus: p.taskStatus ?? {},
+            })),
+          });
         }
       }
     } catch {
@@ -149,6 +164,20 @@ export function LoomProvider({ children }: { children: React.ReactNode }) {
     [update]
   );
 
+  const setTaskStatus = React.useCallback(
+    (id: string, taskId: string, status: TaskStatus) =>
+      update(id, (p) => ({
+        ...p,
+        taskStatus: { ...p.taskStatus, [taskId]: status },
+      })),
+    [update]
+  );
+
+  const resetTasks = React.useCallback(
+    (id: string) => update(id, (p) => ({ ...p, taskStatus: {} })),
+    [update]
+  );
+
   const getProject = React.useCallback(
     (id: string) => state.projects.find((p) => p.id === id),
     [state.projects]
@@ -165,6 +194,8 @@ export function LoomProvider({ children }: { children: React.ReactNode }) {
     setCursor,
     compile,
     setRun,
+    setTaskStatus,
+    resetTasks,
   };
 
   return <LoomContext.Provider value={value}>{children}</LoomContext.Provider>;

@@ -9,6 +9,7 @@ import {
   MessagesSquare,
   Network,
   Play,
+  Hammer,
   Trash2,
 } from "lucide-react";
 
@@ -41,6 +42,11 @@ const STEPS = [
     icon: FileText,
     title: "Spec",
     body: "One prioritized list. Critical first, then medium, then low, with the reason each thing is where it is.",
+  },
+  {
+    icon: Hammer,
+    title: "Build",
+    body: "The spec becomes tracked tasks — decisions gate the work waiting behind them — plus a starting codebase that compiles.",
   },
 ];
 
@@ -76,7 +82,8 @@ export default function HomePage() {
               one opinion, hedged. Loom asks you eleven questions, compiles the
               answers into a workflow graph, and runs each review independently
               — so a checker can find the problems that only show up when you
-              read all of them at once.
+              read all of them at once. Then it turns what&apos;s left into a
+              tracked build.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
@@ -111,7 +118,7 @@ export default function HomePage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {STEPS.map((step, i) => (
             <Card key={step.title} className="border-border/70">
               <CardContent className="pt-6">
@@ -156,11 +163,16 @@ export default function HomePage() {
           <ul className="grid gap-3 sm:grid-cols-2">
             {projects.map((project) => {
               const progress = Math.round(interviewProgress(project.answers) * 100);
-              const stage = project.run?.finishedAt
-                ? "spec"
-                : project.graph
-                  ? "graph"
-                  : "interview";
+              const tasksDone = Object.values(project.taskStatus ?? {}).filter(
+                (status) => status === "done"
+              ).length;
+              const stage = tasksDone > 0
+                ? "build"
+                : project.run?.finishedAt
+                  ? "spec"
+                  : project.graph
+                    ? "graph"
+                    : "interview";
               const findings =
                 project.run?.nodes.summary?.result?.findings.length ?? null;
 
@@ -194,6 +206,11 @@ export default function HomePage() {
                           {findings !== null ? (
                             <span className="text-xs text-muted-foreground">
                               {findings} findings
+                            </span>
+                          ) : null}
+                          {tasksDone > 0 ? (
+                            <span className="text-xs text-emerald-500">
+                              {tasksDone} tasks done
                             </span>
                           ) : null}
                         </div>

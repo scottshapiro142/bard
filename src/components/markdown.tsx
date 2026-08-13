@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
 /** Inline `code` and **bold**. That's all the reviews use. */
-function inline(text: string, keyPrefix: string): React.ReactNode[] {
+export function inline(text: string, keyPrefix: string): React.ReactNode[] {
   const out: React.ReactNode[] = [];
   const pattern = /(\*\*[^*]+\*\*|`[^`]+`)/g;
   let last = 0;
@@ -77,6 +77,11 @@ function Heading({ level, text, k }: { level: number; text: string; k: string })
       {content}
     </h3>
   );
+}
+
+/** The same inline formatting, for prose shown outside a markdown document. */
+export function Inline({ text }: { text: string }) {
+  return <>{inline(text, "i")}</>;
 }
 
 /**

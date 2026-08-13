@@ -135,10 +135,67 @@ try {
   await page.waitForSelector("text=Audience review", { timeout: 10000 });
   check("Individual node outputs are readable as files", true);
 
-  // 6. Persistence
+  // 6. Build — tasks and scaffold
+  await page.getByTestId("go-to-build").click();
+  await page.waitForURL(/\/build$/, { timeout: 10000 });
+  await page.waitForSelector("text=Decide", { timeout: 10000 });
+
+  const taskCount = await page.locator("[data-task]").count();
+  check("Spec compiles into a task list", taskCount > 15, `${taskCount} tasks`);
+  check(
+    "Tasks are grouped into milestones",
+    (await page.locator("[data-milestone]").count()) >= 4
+  );
+  check(
+    "Downstream work is blocked by open decisions",
+    (await page.locator("text=blocked by").count()) > 0
+  );
+
+  // Toggling a task persists, and clearing a decision unblocks what waited on it.
+  const blockedBefore = await page.locator("text=blocked by").count();
+  const decisions = page.locator('[data-milestone="decide"] [data-task]');
+  const decisionCount = await decisions.count();
+  for (let i = 0; i < decisionCount; i++) {
+    const toggle = decisions.nth(i).locator("button").first();
+    await toggle.click(); // todo -> doing
+    await toggle.click(); // doing -> done
+  }
+  await page.waitForTimeout(250);
+  check(
+    "Settling the open decisions unblocks downstream work",
+    (await page.locator("text=blocked by").count()) < blockedBefore,
+    `${blockedBefore} -> ${await page.locator("text=blocked by").count()}`
+  );
+  check(
+    "Task status is recorded",
+    (await page.locator('[data-status="done"]').count()) > 0
+  );
+
+  // Scaffold
+  await page.getByTestId("tab-scaffold").click();
+  await page.waitForSelector("text=Generated files", { timeout: 10000 });
+  const fileCount = await page.locator('[data-testid^="scaffold-"]').count();
+  check("Scaffold generates a starting codebase", fileCount >= 5, `${fileCount} files`);
+
+  const buildMd = await page.locator("pre").first().innerText();
+  check("BUILD.md carries the task list", buildMd.includes("## Decide"));
+
+  await page.getByTestId("scaffold-1").click();
+  await page.waitForTimeout(150);
+  const typesFile = await page.locator("pre").first().innerText();
+  check(
+    "Generated types come from the data model",
+    typesFile.includes("export interface")
+  );
+
+  // 7. Persistence
   await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
   await page.waitForSelector("text=Spec ready", { timeout: 10000 });
   check("Projects persist across navigation", true);
+  check(
+    "Task progress persists",
+    (await page.locator("text=tasks done").count()) > 0
+  );
 } catch (error) {
   check("Run completed without throwing", false, error.message);
 } finally {

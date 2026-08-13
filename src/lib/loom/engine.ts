@@ -7,6 +7,7 @@ import {
   scaleLabel,
   platformLabel,
 } from "./brief";
+import { screenInventory } from "./screens";
 import type {
   Answers,
   Brief,
@@ -303,26 +304,7 @@ function reviewFlows(brief: Brief, answers: Answers): NodeResult {
 
 function reviewScreens(brief: Brief): NodeResult {
   const [primary, secondary] = brief.entities;
-  const screens: string[] = [];
-
-  if (brief.scale !== "prototype") {
-    screens.push("**Sign in / claim account** — the first thing between them and value");
-  }
-  screens.push(`**${plural(primary)}** — the list, and the home screen in practice`);
-  screens.push(`**${primary} detail** — everything about one ${primary.toLowerCase()}`);
-  screens.push(`**New ${primary.toLowerCase()}** — the primary flow lives here`);
-  if (secondary) {
-    screens.push(
-      `**${plural(secondary)}** — referenced by ${primary.toLowerCase()}, but nothing in the brief says where these get created`
-    );
-  }
-  if (brief.type === "internal") {
-    screens.push("**Admin** — roles, membership, and everything nobody wanted to design");
-  }
-  if (brief.type === "analytics") {
-    screens.push("**Report detail** — the number, and hopefully the action next to it");
-  }
-  screens.push("**Settings** — currently a holding pen for undecided questions");
+  const screens = screenInventory(brief);
 
   const findings: Finding[] = [
     finding(
@@ -361,7 +343,13 @@ function reviewScreens(brief: Brief): NodeResult {
         ["Platform", brief.platforms.map(platformLabel).join(", ") || "Web"],
       ],
       [
-        { h: "Screen inventory", lines: screens.map((s) => `- ${s}`) },
+        {
+          h: "Screen inventory",
+          lines: screens.map(
+            (screen) =>
+              `- **${screen.name}** (\`${screen.route}\`) — ${screen.note}`
+          ),
+        },
         {
           h: "Information architecture",
           lines: [
