@@ -135,67 +135,205 @@ try {
   await page.waitForSelector("text=Audience review", { timeout: 10000 });
   check("Individual node outputs are readable as files", true);
 
-  // 6. Build — tasks and scaffold
+  // 6. Build — the split view
   await page.getByTestId("go-to-build").click();
   await page.waitForURL(/\/build$/, { timeout: 10000 });
-  await page.waitForSelector("text=Decide", { timeout: 10000 });
+  await page.waitForSelector('[data-testid="preview-surface"]', { timeout: 15000 });
+  check("Build opens as a split view with a live preview", true);
 
   const taskCount = await page.locator("[data-task]").count();
-  check("Spec compiles into a task list", taskCount > 15, `${taskCount} tasks`);
+  check("Spec compiles into a task list", taskCount > 12, `${taskCount} tasks`);
   check(
     "Tasks are grouped into milestones",
     (await page.locator("[data-milestone]").count()) >= 4
   );
+
+  // Plain language leads; the reviews' own words are behind a toggle.
+  const firstTask = page.locator("[data-task]").first();
+  check(
+    "Tasks lead with plain language",
+    (await firstTask.locator("p.font-medium").first().innerText()).length > 0
+  );
+  check(
+    "The technical detail is available but not first",
+    (await page.locator("text=Show the technical detail").count()) > 0
+  );
+
+  // No two tasks should carry the same plain heading.
+  const headings = await page.locator("[data-task] p.font-medium").allInnerTexts();
+  check(
+    "No two tasks say the same thing",
+    new Set(headings).size === headings.length,
+    `${headings.length} tasks, ${new Set(headings).size} distinct`
+  );
+
   check(
     "Downstream work is blocked by open decisions",
-    (await page.locator("text=blocked by").count()) > 0
+    (await page.locator("text=waiting on").count()) > 0
   );
 
-  // Toggling a task persists, and clearing a decision unblocks what waited on it.
-  const blockedBefore = await page.locator("text=blocked by").count();
-  const decisions = page.locator('[data-milestone="decide"] [data-task]');
-  const decisionCount = await decisions.count();
-  for (let i = 0; i < decisionCount; i++) {
-    const toggle = decisions.nth(i).locator("button").first();
-    await toggle.click(); // todo -> doing
-    await toggle.click(); // doing -> done
-  }
-  await page.waitForTimeout(250);
+  // 7. Editing the app — the anti-drift guarantee
+  await page.getByTestId("tab-screens").click();
+  await page.waitForSelector('[data-testid="add-screen"]', { timeout: 10000 });
+
+  await page.getByTestId("entity-shoot").click();
+  await page.waitForTimeout(200);
+  await page.getByTestId("field-shoot-title").fill("sessionTitle");
+  await page.waitForTimeout(400);
+
+  // The create screen labels every field, so a rename is visible there.
+  await page.getByTestId("preview-screen").selectOption("shoots-create");
+  await page.waitForTimeout(300);
+  const previewText = await page.getByTestId("preview-surface").innerText();
   check(
-    "Settling the open decisions unblocks downstream work",
-    (await page.locator("text=blocked by").count()) < blockedBefore,
-    `${blockedBefore} -> ${await page.locator("text=blocked by").count()}`
-  );
-  check(
-    "Task status is recorded",
-    (await page.locator('[data-status="done"]').count()) > 0
+    "Renaming a field changes the preview",
+    /session title/i.test(previewText),
+    previewText.slice(0, 60).replace(/\n/g, " ")
   );
 
-  // Scaffold
   await page.getByTestId("tab-scaffold").click();
-  await page.waitForSelector("text=Generated files", { timeout: 10000 });
-  const fileCount = await page.locator('[data-testid^="scaffold-"]').count();
-  check("Scaffold generates a starting codebase", fileCount >= 5, `${fileCount} files`);
-
-  const buildMd = await page.locator("pre").first().innerText();
-  check("BUILD.md carries the task list", buildMd.includes("## Decide"));
-
-  await page.getByTestId("scaffold-1").click();
-  await page.waitForTimeout(150);
-  const typesFile = await page.locator("pre").first().innerText();
+  await page.waitForTimeout(300);
+  const typesButton = page.locator('[data-testid^="scaffold-"]', {
+    hasText: "lib/types.ts",
+  });
+  await typesButton.click();
+  await page.waitForTimeout(300);
+  const typesSource = await page.locator("pre").first().innerText();
   check(
-    "Generated types come from the data model",
-    typesFile.includes("export interface")
+    "Renaming a field changes the generated code too",
+    typesSource.includes("sessionTitle")
   );
 
-  // 7. Persistence
+  // Adding a screen reaches the plan and the code.
+  const filesBefore = await page.locator('[data-testid^="scaffold-"]').count();
+  await page.getByTestId("tab-screens").click();
+  await page.getByTestId("add-screen").click();
+  await page.waitForTimeout(400);
+  await page.getByTestId("tab-scaffold").click();
+  await page.waitForTimeout(300);
+  const filesAfter = await page.locator('[data-testid^="scaffold-"]').count();
+  check(
+    "Adding a screen adds its file to the code",
+    filesAfter === filesBefore + 1,
+    `${filesBefore} -> ${filesAfter}`
+  );
+  await page.getByTestId("tab-tasks").click();
+  await page.waitForTimeout(300);
+  check(
+    "Adding a screen adds its task",
+    (await page.locator("[data-task]").count()) === taskCount + 1
+  );
+
+  // 8. Theme
+  await page.getByTestId("tab-theme").click();
+  await page.waitForSelector('[data-testid="preset-forest"]', { timeout: 10000 });
+  const primaryBefore = await page.evaluate(() =>
+    getComputedStyle(
+      document.querySelector('[data-testid="preview-surface"]')
+    ).getPropertyValue("--primary")
+  );
+  await page.getByTestId("preset-forest").click();
+  await page.waitForTimeout(400);
+  const primaryAfter = await page.evaluate(() =>
+    getComputedStyle(
+      document.querySelector('[data-testid="preview-surface"]')
+    ).getPropertyValue("--primary")
+  );
+  check(
+    "Changing the theme restyles the preview",
+    primaryBefore !== primaryAfter,
+    `${primaryBefore.trim()} -> ${primaryAfter.trim()}`
+  );
+  check(
+    "The theme is checked for readability",
+    (await page.locator('[data-testid="contrast-checks"] li').count()) >= 4
+  );
+
+  // 9. The human-in-the-loop checkpoint
+  await page.getByTestId("tab-tasks").click();
+  await page.waitForTimeout(300);
+  for (const id of ["fix-identity", "fix-permissions", "screen-auth"]) {
+    const row = page.locator(`[data-task="${id}"]`).first();
+    if ((await row.count()) === 0) continue;
+    const toggle = row.locator("button").first();
+    await toggle.click();
+    await toggle.click();
+    await page.waitForTimeout(120);
+  }
+  await page.waitForTimeout(400);
+
+  await page.waitForSelector("[data-checkpoint]", { timeout: 10000 });
+  check("Finishing a feature raises a checkpoint", true);
+
+  await page.getByTestId("designer-name").first().fill("Scott");
+  await page.getByTestId("designer-name").first().blur();
+  await page.waitForTimeout(400);
+  const headline = await page
+    .getByTestId("checkpoint-headline")
+    .first()
+    .innerText();
+  check(
+    "The checkpoint is addressed to you, by name, in plain words",
+    headline.startsWith("Scott") && /just finished/.test(headline),
+    headline
+  );
+  check(
+    "A review task is assigned to you",
+    (await page.locator('[data-task^="review-"]').count()) > 0
+  );
+
+  // "Needs work" turns your own words into a task.
+  await page.getByTestId("request-changes").first().click();
+  const complaint = "It asks for a password before showing me anything useful.";
+  await page.getByTestId("feedback-note").fill(complaint);
+  await page.getByTestId("submit-feedback").click();
+  await page.waitForTimeout(500);
+  check(
+    "Your feedback becomes a task",
+    (await page.locator('[data-task^="feedback-"]').count()) > 0
+  );
+  await page
+    .locator('[data-task^="feedback-"]')
+    .first()
+    .locator("text=Show the technical detail")
+    .click();
+  await page.waitForTimeout(200);
+  check(
+    "The task quotes what you actually said",
+    (await page.locator(`text=${complaint}`).count()) > 0
+  );
+
+  // 10. Docs
+  await page.getByTestId("tab-docs").click();
+  await page.waitForTimeout(400);
+  const docsText = await page.locator("main").innerText();
+  check(
+    "A plain-language handbook is generated",
+    docsText.includes("What we're building")
+  );
+  await page.getByTestId("doc-7").click();
+  await page.waitForTimeout(300);
+  check(
+    "The handbook defines its own jargon",
+    (await page.locator("text=Glossary").count()) > 0
+  );
+
+  // 11. Persistence
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector("[data-checkpoint]", { timeout: 15000 });
+  check("Checkpoint state survives a reload", true);
+  await page.getByTestId("tab-screens").click();
+  await page.getByTestId("entity-shoot").click();
+  await page.waitForTimeout(300);
+  check(
+    "Your edits survive a reload",
+    (await page.getByTestId("field-shoot-title").inputValue()) === "sessionTitle"
+  );
+
   await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
   await page.waitForSelector("text=Spec ready", { timeout: 10000 });
   check("Projects persist across navigation", true);
-  check(
-    "Task progress persists",
-    (await page.locator("text=tasks done").count()) > 0
-  );
+
 } catch (error) {
   check("Run completed without throwing", false, error.message);
 } finally {

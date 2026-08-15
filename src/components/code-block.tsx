@@ -6,7 +6,7 @@ import { Check, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-export type CodeLanguage = "yaml" | "ts" | "tsx" | "md";
+export type CodeLanguage = "yaml" | "ts" | "tsx" | "md" | "css" | "json";
 
 const TS_TOKENS =
   /(\/\/.*$|\{\/\*[\s\S]*?\*\/\})|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|\b(import|export|from|const|let|async|await|function|return|if|else|type|interface|new|throw|try|catch|null|default|as|of|void|true|false)\b/g;
@@ -36,6 +36,34 @@ function highlight(line: string, key: number, language: CodeLanguage) {
       );
     }
 
+    return (
+      <span key={key} className="text-foreground/80">
+        {line}
+      </span>
+    );
+  }
+
+  if (language === "css" || language === "json") {
+    const comment = line.match(/^\s*(\/\*|\*|\/\/)/);
+    if (comment) {
+      return (
+        <span key={key} className="text-muted-foreground/60 italic">
+          {line}
+        </span>
+      );
+    }
+    const prop = line.match(/^(\s*)("?[\w@-]+"?)(\s*:)(.*)$/);
+    if (prop) {
+      const [, indent, name, colon, rest] = prop;
+      return (
+        <span key={key}>
+          {indent}
+          <span className="text-primary">{name}</span>
+          <span className="text-muted-foreground">{colon}</span>
+          <span className="text-emerald-400/80">{rest}</span>
+        </span>
+      );
+    }
     return (
       <span key={key} className="text-foreground/80">
         {line}

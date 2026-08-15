@@ -113,7 +113,13 @@ export function ProjectShell({
         </nav>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
+      <main
+        className={cn(
+          "mx-auto w-full flex-1 px-4 sm:px-6",
+          // Build is a two-pane workspace, so it gets the whole window.
+          current === "build" ? "max-w-[112rem] py-4" : "max-w-6xl py-8"
+        )}
+      >
         {children}
       </main>
     </div>

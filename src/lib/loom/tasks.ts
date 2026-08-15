@@ -1,8 +1,10 @@
-import { plural } from "./brief";
-import { screenInventory } from "./screens";
+import { plural, singular } from "./brief";
+import { enabledScreens, primaryOf, type AppSpec } from "./app";
+import { plainFor, type PlainVars } from "./plain";
 import type {
   Brief,
   Finding,
+  Severity,
   Milestone,
   MilestoneId,
   Task,
@@ -90,14 +92,6 @@ const FALLBACK = {
   size: "M" as TaskSize,
 };
 
-function slug(text: string) {
-  return text
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 44);
-}
-
 /** A finding says what's wrong. A task says what to do about it. */
 function verbFor(kind: TaskKind, title: string): string {
   if (kind === "decide") return `Decide: ${title.replace(/^The /, "the ")}`;
@@ -113,40 +107,75 @@ function verbFor(kind: TaskKind, title: string): string {
  * interleave by milestone, so the list reads as one build rather than a fix
  * list bolted onto a plan.
  */
-export function compileTasks(brief: Brief, findings: Finding[]): Task[] {
+export function compileTasks(
+  brief: Brief,
+  findings: Finding[],
+  app: AppSpec
+): Task[] {
   const tasks: Task[] = [];
+  const primary = primaryOf(app);
+  const vars: PlainVars = {
+    thing: singular(primary.name).toLowerCase(),
+    things: plural(primary.name).toLowerCase(),
+    actor: brief.actor,
+    actors: brief.actorPlural,
+  };
 
   // --- fixes the reviews asked for -----------------------------------------
+  // Grouped by concern, not one task per finding. Two reviews both saying the
+  // permission model is undecided are describing one decision, and listing it
+  // twice under the same plain-language heading reads as a bug.
+  const byConcern = new Map<string, Finding[]>();
   for (const finding of findings) {
     const tag = finding.tags[0] ?? "flows";
+    const group = byConcern.get(tag);
+    if (group) group.push(finding);
+    else byConcern.set(tag, [finding]);
+  }
+
+  const rank: Record<Severity, number> = { critical: 0, medium: 1, low: 2 };
+
+  for (const [tag, group] of byConcern) {
     const route = ROUTING[tag] ?? FALLBACK;
-    // A critical finding is never smaller than medium-sized work.
+    const sorted = [...group].sort(
+      (a, b) => rank[a.severity] - rank[b.severity]
+    );
+    const worst = sorted[0];
+    // A critical concern is never small work.
     const size: TaskSize =
-      finding.severity === "critical" && route.size === "S" ? "M" : route.size;
+      worst.severity === "critical" && route.size === "S" ? "M" : route.size;
 
     tasks.push({
-      id: `fix-${slug(finding.title)}`,
-      title: verbFor(route.kind, finding.title),
-      detail: finding.detail,
+      id: `fix-${tag}`,
+      title: verbFor(route.kind, worst.title),
+      detail: sorted
+        .map((f) => `**${f.title}** — ${f.detail}`)
+        .join("\n\n"),
+      plain: plainFor(tag, vars),
       milestone: route.milestone,
       kind: route.kind,
       size,
       source: "finding",
-      from: finding.node,
-      severity: finding.severity,
+      from: [...new Set(sorted.map((f) => f.node))].join(", "),
+      severity: worst.severity,
       tag,
       blockedBy: [],
     });
   }
 
   // --- the build itself ----------------------------------------------------
-  const screens = screenInventory(brief);
+  const screens = enabledScreens(app);
 
-  for (const entity of brief.entities) {
+  for (const entity of app.entities) {
     tasks.push({
-      id: `type-${slug(entity)}`,
-      title: `Define the ${entity} type`,
-      detail: `Fields, and which of them are required at creation time. The scaffold generates a starting point — the part it can't know is which fields are optional until the ${entity.toLowerCase()} is complete.`,
+      id: `type-${entity.id}`,
+      title: `Decide what you keep about each ${entity.name.toLowerCase()}`,
+      detail: `Fields, and which of them are required at creation time. The scaffold generates a starting point — the part it can't know is which fields are optional until the ${entity.name.toLowerCase()} is complete.`,
+      plain: {
+        what: `List what you need to know about a ${entity.name.toLowerCase()}.`,
+        why: `Every screen showing a ${entity.name.toLowerCase()} reads this list. Adding to it later means revisiting each of those screens.`,
+        done: `You can name each thing you keep about a ${entity.name.toLowerCase()}, and say which of them you can't do without.`,
+      },
       milestone: "foundation",
       kind: "build",
       size: "S",
@@ -158,9 +187,14 @@ export function compileTasks(brief: Brief, findings: Finding[]): Task[] {
 
   tasks.push({
     id: "storage",
-    title: `Wire up storage for ${brief.entities.length} record types`,
+    title: `Set up somewhere to keep ${app.entities.length} kinds of record`,
     detail:
       "The scaffold puts every read and write behind one module, so swapping the in-memory stub for a real database touches one file rather than every screen.",
+    plain: {
+      what: "Give the app somewhere to actually save things.",
+      why: "Until this exists, everything you add disappears the moment the page reloads.",
+      done: "Something you create is still there tomorrow.",
+    },
     milestone: "foundation",
     kind: "build",
     size: "M",
@@ -171,8 +205,9 @@ export function compileTasks(brief: Brief, findings: Finding[]): Task[] {
 
   tasks.push({
     id: "primary-flow",
-    title: `Make the primary flow work end to end`,
+    title: `Make the main job work start to finish`,
     detail: `${brief.job || "The primary job"} — from arriving to seeing confirmation, with a real record at the end of it.`,
+    plain: plainFor("flows", vars),
     milestone: "core",
     kind: "build",
     size: "L",
@@ -182,18 +217,30 @@ export function compileTasks(brief: Brief, findings: Finding[]): Task[] {
   });
 
   for (const screen of screens) {
+    const entity = app.entities.find((e) => e.id === screen.entityId);
     tasks.push({
       id: `screen-${screen.id}`,
-      title: `Build ${screen.name} (${screen.route})`,
+      title: `Build the ${screen.name.toLowerCase()} screen`,
       detail: `${screen.note.replace(/^./, (c) => c.toUpperCase())}.${
-        screen.entity ? ` Reads and writes ${plural(screen.entity)}.` : ""
-      }`,
+        entity ? ` Reads and writes ${plural(entity.name).toLowerCase()}.` : ""
+      } Lives at ${screen.route}.`,
+      plain: {
+        what: `Build the ${screen.name.toLowerCase()} screen.`,
+        why: screen.custom
+          ? "You added this one yourself, so no review has looked at it — worth deciding what it's for before you build it."
+          : `${screen.note.replace(/^./, (c) => c.toUpperCase())}.`,
+        done: `You can open ${screen.route} and it does what its name says${
+          screen.states.length
+            ? `, including when there's nothing to show`
+            : ""
+        }.`,
+      },
       milestone: "core",
       kind: "build",
       size: screen.kind === "create" ? "L" : "M",
       source: "plan",
       tag: screen.kind === "auth" ? "identity" : "screens",
-      blockedBy: screen.entity ? [`type-${slug(screen.entity)}`] : [],
+      blockedBy: entity ? [`type-${entity.id}`] : [],
     });
   }
 
@@ -247,7 +294,7 @@ export function blockersOf(
 }
 
 export function tasksIn(tasks: Task[], milestone: MilestoneId): Task[] {
-  const order = { decide: 0, design: 1, build: 2 } as const;
+  const order = { review: 0, decide: 1, design: 2, build: 3 } as const;
   const severity = { critical: 0, medium: 1, low: 2 } as const;
   return tasks
     .filter((t) => t.milestone === milestone)

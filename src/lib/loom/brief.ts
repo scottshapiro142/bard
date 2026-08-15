@@ -147,6 +147,7 @@ export function deriveBrief(answers: Answers): Brief {
 
   return {
     product: (answers.product ?? "").trim(),
+    who: (answers.who ?? "").trim(),
     actor,
     actorPlural: plural(actor),
     job: (answers.job ?? "").trim(),

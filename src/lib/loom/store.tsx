@@ -7,11 +7,14 @@ import { firstSentence } from "./brief";
 import { EXAMPLE_ANSWERS } from "./example";
 import type {
   Answers,
+  CheckpointState,
+  FeedbackNote,
   LoomState,
   Project,
   RunState,
   TaskStatus,
 } from "./types";
+import type { AppSpec } from "./app";
 
 const STORAGE_KEY = "loom-state-v1";
 
@@ -40,6 +43,10 @@ function blankProject(answers: Answers = {}): Project {
     graph: null,
     run: null,
     taskStatus: {},
+    app: null,
+    designerName: "",
+    checkpoints: {},
+    feedback: [],
   };
 }
 
@@ -55,6 +62,11 @@ interface LoomContextValue extends LoomState {
   setRun: (id: string, run: RunState | null) => void;
   setTaskStatus: (id: string, taskId: string, status: TaskStatus) => void;
   resetTasks: (id: string) => void;
+  setApp: (id: string, app: AppSpec) => void;
+  resetApp: (id: string) => void;
+  setDesignerName: (id: string, name: string) => void;
+  setCheckpoint: (id: string, featureId: string, state: CheckpointState) => void;
+  addFeedback: (id: string, featureId: string, text: string) => void;
 }
 
 const LoomContext = React.createContext<LoomContextValue | null>(null);
@@ -74,9 +86,15 @@ export function LoomProvider({ children }: { children: React.ReactNode }) {
         if (Array.isArray(parsed.projects)) {
           // taskStatus arrived after the first release; older saves lack it.
           setState({
+            // Each of these arrived after an earlier release; older saves
+            // predate them and must not crash on load.
             projects: parsed.projects.map((p) => ({
               ...p,
               taskStatus: p.taskStatus ?? {},
+              app: p.app ?? null,
+              designerName: p.designerName ?? "",
+              checkpoints: p.checkpoints ?? {},
+              feedback: p.feedback ?? [],
             })),
           });
         }
@@ -178,6 +196,65 @@ export function LoomProvider({ children }: { children: React.ReactNode }) {
     [update]
   );
 
+  const setApp = React.useCallback(
+    (id: string, app: AppSpec) => update(id, (p) => ({ ...p, app })),
+    [update]
+  );
+
+  const resetApp = React.useCallback(
+    (id: string) => update(id, (p) => ({ ...p, app: null })),
+    [update]
+  );
+
+  const setDesignerName = React.useCallback(
+    (id: string, designerName: string) =>
+      update(id, (p) => ({ ...p, designerName })),
+    [update]
+  );
+
+  const setCheckpoint = React.useCallback(
+    (id: string, featureId: string, state: CheckpointState) =>
+      update(id, (p) => ({
+        ...p,
+        checkpoints: {
+          ...p.checkpoints,
+          [featureId]: {
+            featureId,
+            state,
+            raisedAt: p.checkpoints[featureId]?.raisedAt ?? Date.now(),
+            respondedAt: Date.now(),
+          },
+        },
+      })),
+    [update]
+  );
+
+  const addFeedback = React.useCallback(
+    (id: string, featureId: string, text: string) =>
+      update(id, (p) => {
+        const note: FeedbackNote = {
+          id: uid("fb"),
+          featureId,
+          text: text.trim(),
+          createdAt: Date.now(),
+        };
+        return {
+          ...p,
+          feedback: [...p.feedback, note],
+          checkpoints: {
+            ...p.checkpoints,
+            [featureId]: {
+              featureId,
+              state: "changes-requested",
+              raisedAt: p.checkpoints[featureId]?.raisedAt ?? Date.now(),
+              respondedAt: Date.now(),
+            },
+          },
+        };
+      }),
+    [update]
+  );
+
   const getProject = React.useCallback(
     (id: string) => state.projects.find((p) => p.id === id),
     [state.projects]
@@ -196,6 +273,11 @@ export function LoomProvider({ children }: { children: React.ReactNode }) {
     setRun,
     setTaskStatus,
     resetTasks,
+    setApp,
+    resetApp,
+    setDesignerName,
+    setCheckpoint,
+    addFeedback,
   };
 
   return <LoomContext.Provider value={value}>{children}</LoomContext.Provider>;

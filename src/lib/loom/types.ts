@@ -1,3 +1,6 @@
+import type { AppSpec } from "./app";
+import type { PlainText } from "./plain";
+
 export type ProductType =
   | "consumer"
   | "internal"
@@ -97,7 +100,7 @@ export type MilestoneId =
   | "states"
   | "harden";
 
-export type TaskKind = "decide" | "design" | "build";
+export type TaskKind = "decide" | "design" | "build" | "review";
 export type TaskSize = "S" | "M" | "L";
 export type TaskStatus = "todo" | "doing" | "done";
 
@@ -110,7 +113,14 @@ export interface Milestone {
 export interface Task {
   id: string;
   title: string;
+  /** The reviews' own words. Kept, but never what a designer reads first. */
   detail: string;
+  /** What this is, why it matters, and how you'd know it's done. */
+  plain: PlainText;
+  /** The feature this belongs to, for the review checkpoints. */
+  featureId?: string;
+  /** For review tasks: which screen to open when they go and try it. */
+  previewScreenId?: string;
   milestone: MilestoneId;
   kind: TaskKind;
   size: TaskSize;
@@ -127,10 +137,31 @@ export interface Task {
 /** A file the scaffold generates. */
 export interface ScaffoldFile {
   path: string;
-  language: "ts" | "tsx" | "md";
+  language: "ts" | "tsx" | "md" | "css" | "json";
   /** Why this file looks the way it does, traced back to a review. */
   because: string;
   contents: string;
+}
+
+export type CheckpointState =
+  | "waiting"
+  | "ready"
+  | "approved"
+  | "changes-requested";
+
+export interface Checkpoint {
+  featureId: string;
+  state: CheckpointState;
+  raisedAt: number;
+  respondedAt?: number;
+}
+
+/** Something the designer said after trying it, kept in their own words. */
+export interface FeedbackNote {
+  id: string;
+  featureId: string;
+  text: string;
+  createdAt: number;
 }
 
 export interface Project {
@@ -146,6 +177,13 @@ export interface Project {
   run: RunState | null;
   /** Task id -> status. Absent means todo. */
   taskStatus: Record<string, TaskStatus>;
+  /** The editable app. Derived from the brief on first visit to Build. */
+  app: AppSpec | null;
+  /** What to call the designer in checkpoint messages. */
+  designerName: string;
+  /** Feature id -> checkpoint. */
+  checkpoints: Record<string, Checkpoint>;
+  feedback: FeedbackNote[];
 }
 
 export interface LoomState {
@@ -155,6 +193,8 @@ export interface LoomState {
 /** Everything the generators read, normalised once so they stay consistent. */
 export interface Brief {
   product: string;
+  /** The audience answer, verbatim — the docs quote it back. */
+  who: string;
   actor: string;
   actorPlural: string;
   job: string;
