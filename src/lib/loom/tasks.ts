@@ -1,6 +1,7 @@
 import { plural, singular } from "./brief";
 import { enabledScreens, primaryOf, type AppSpec } from "./app";
 import { plainFor, type PlainVars } from "./plain";
+import { questionFor } from "./questions";
 import type {
   Brief,
   Finding,
@@ -152,6 +153,7 @@ export function compileTasks(
         .map((f) => `**${f.title}** — ${f.detail}`)
         .join("\n\n"),
       plain: plainFor(tag, vars),
+      question: questionFor(tag, vars),
       milestone: route.milestone,
       kind: route.kind,
       size,

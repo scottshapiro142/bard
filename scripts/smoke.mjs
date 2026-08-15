@@ -160,7 +160,7 @@ try {
   );
 
   // No two tasks should carry the same plain heading.
-  const headings = await page.locator("[data-task] p.font-medium").allInnerTexts();
+  const headings = await page.locator("[data-task] [data-task-title]").allInnerTexts();
   check(
     "No two tasks say the same thing",
     new Set(headings).size === headings.length,
@@ -171,6 +171,35 @@ try {
     "Downstream work is blocked by open decisions",
     (await page.locator("text=waiting on").count()) > 0
   );
+
+  // Loom asks rather than lists — and remembers what you say.
+  check(
+    "Loom says what it still needs to know",
+    (await page.getByTestId("open-questions").count()) > 0
+  );
+  const identity = page.locator('[data-question="fix-identity"]').first();
+  check(
+    "Decisions are asked as real questions",
+    (await identity.count()) > 0 &&
+      /who owns/i.test(await identity.innerText())
+  );
+  check(
+    "Suggested answers say what they cost",
+    (await identity.locator("[data-answer]").count()) >= 2
+  );
+
+  await identity.locator("[data-answer]").first().click();
+  await page.waitForTimeout(400);
+  const answered = page.locator('[data-task="fix-identity"]').first();
+  check(
+    "Answering records what you said",
+    /you said/i.test(await answered.innerText())
+  );
+  check(
+    "Answering settles the task",
+    (await answered.getAttribute("data-status")) === "done"
+  );
+
 
   // 7. Editing the app — the anti-drift guarantee
   await page.getByTestId("tab-screens").click();
@@ -252,13 +281,15 @@ try {
   // 9. The human-in-the-loop checkpoint
   await page.getByTestId("tab-tasks").click();
   await page.waitForTimeout(300);
+  // Advance each to done, whatever state it is already in.
   for (const id of ["fix-identity", "fix-permissions", "screen-auth"]) {
     const row = page.locator(`[data-task="${id}"]`).first();
     if ((await row.count()) === 0) continue;
-    const toggle = row.locator("button").first();
-    await toggle.click();
-    await toggle.click();
-    await page.waitForTimeout(120);
+    for (let i = 0; i < 3; i++) {
+      if ((await row.getAttribute("data-status")) === "done") break;
+      await row.locator("button").first().click();
+      await page.waitForTimeout(150);
+    }
   }
   await page.waitForTimeout(400);
 
@@ -310,6 +341,12 @@ try {
   check(
     "A plain-language handbook is generated",
     docsText.includes("What we're building")
+  );
+  await page.getByTestId("doc-4").click();
+  await page.waitForTimeout(300);
+  check(
+    "The handbook records what you decided, in your words",
+    /you said/i.test(await page.locator("main").innerText())
   );
   await page.getByTestId("doc-7").click();
   await page.waitForTimeout(300);

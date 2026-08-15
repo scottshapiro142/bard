@@ -3,7 +3,7 @@ import { enabledScreens, primaryOf, type AppSpec, type Field } from "./app";
 import { FIELD_TYPES, SCREEN_STATES } from "./app";
 import { GLOSSARY } from "./plain";
 import { FONT_STACKS, PRESETS, resolveTheme } from "./theme";
-import { MILESTONES, statusOf, tasksIn } from "./tasks";
+import { MILESTONES } from "./tasks";
 import type { Feature } from "./features";
 import type { Brief, FeedbackNote, Finding, Task, TaskStatus } from "./types";
 
@@ -46,6 +46,8 @@ export interface DocInput {
   feedback: FeedbackNote[];
   leafCount: number;
   designerName: string;
+  /** Task id -> what the designer actually answered. */
+  decisions: Record<string, string>;
 }
 
 /**
@@ -56,7 +58,7 @@ export interface DocInput {
  * need a developer to interpret it.
  */
 export function generateDocs(input: DocInput): DocPage[] {
-  const { brief, app, findings, tasks, features, statuses } = input;
+  const { brief, app, findings, tasks, features, decisions } = input;
   const primary = primaryOf(app);
   const thing = singular(primary.name).toLowerCase();
   const things = plural(primary.name).toLowerCase();
@@ -209,7 +211,11 @@ export function generateDocs(input: DocInput): DocPage[] {
   });
 
   // -------------------------------------------------------------------------
-  const decisions = tasksIn(tasks, "decide");
+  // Every question Loom asked, wherever it ended up in the plan.
+  const asked = tasks.filter((t) => t.question);
+  const answered = asked.filter((t) => decisions[t.id]);
+  const open = asked.filter((t) => !decisions[t.id]);
+
   pages.push({
     path: "docs/05-what-you-decided.md",
     title: "What was decided, and what's still open",
@@ -217,20 +223,33 @@ export function generateDocs(input: DocInput): DocPage[] {
     body: [
       `# What was decided, and what's still open`,
       ``,
-      `These are the questions with no code attached. Each one has other work waiting behind it, which is why they come first.`,
+      `${answered.length} of ${asked.length} questions have an answer. Anything still open is a decision waiting to be made, not something forgotten.`,
       ``,
-      ...decisions.flatMap((task) => {
-        const done = statusOf(task, statuses) === "done";
-        return [
-          `## ${task.plain.what} ${done ? "— settled" : "— still open"}`,
-          ``,
-          task.plain.why,
-          ``,
-          `**You'll know it's settled when:** ${task.plain.done.replace(/^./, (c) => c.toLowerCase())}`,
-          ``,
-        ];
-      }),
-      decisions.length === 0 ? `Nothing outstanding.\n` : ``,
+      answered.length ? `## Settled` : ``,
+      ``,
+      ...answered.flatMap((task) => [
+        `### ${task.question?.ask ?? task.plain.what}`,
+        ``,
+        `**You said:** ${decisions[task.id]}`,
+        ``,
+        task.question?.why ?? task.plain.why,
+        ``,
+      ]),
+      open.length ? `## Still open` : ``,
+      ``,
+      ...open.flatMap((task) => [
+        `### ${task.question?.ask ?? task.plain.what}`,
+        ``,
+        task.question?.why ?? task.plain.why,
+        ``,
+        task.question?.options.length
+          ? `The options, and what each costs:\n\n${task.question.options
+              .map((o) => `- **${o.label}** — ${o.consequence}`)
+              .join("\n")}`
+          : `**You'll know it's settled when:** ${task.plain.done.replace(/^./, (c) => c.toLowerCase())}`,
+        ``,
+      ]),
+      asked.length === 0 ? `Nothing outstanding.\n` : ``,
       `## What you said after trying it`,
       ``,
       input.feedback.length === 0

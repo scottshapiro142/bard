@@ -83,6 +83,26 @@ checker:
 That last one is the moment the paradigm pays off: reviews that never saw your
 worry either corroborate it or they don't, and both answers are useful.
 
+## Loom asks, and remembers
+
+A decision the app never hears the answer to is just a checkbox. So Loom asks:
+
+> **Someone opens a shoot that isn't theirs. What do they see?**
+> Old links get forwarded. Whatever you don't decide here, the code decides for you.
+>
+> - **"You can't see this"** — Honest and easy to understand. Confirms the thing exists, which is sometimes a leak in itself.
+> - **"Not found"** — Gives nothing away. Slightly confusing for someone who genuinely should have access.
+> - **Everyone can see everything** — Fine inside a small trusted team. Not fine the day you add your first outside client.
+>
+> …or say it in your own words.
+
+Every suggested answer says **what it costs**. There is no right one, and
+pretending otherwise would make this a quiz rather than a conversation.
+
+Answering settles the task, unblocks whatever was waiting behind it, and writes
+your words into the handbook — so *"what was decided"* is a real record rather
+than a list of unticked boxes.
+
 ## Keeping you in the loop
 
 The build isn't a list you grind through alone. When every task in a feature is
@@ -217,7 +237,8 @@ than one node is running at once), the checker's cross-referencing, the
 prioritized spec, and the build stage — including that renaming a field changes
 both the preview and the generated types, that finishing a feature raises a
 checkpoint addressed to you by name, and that your feedback becomes a task
-quoting what you actually said. 42 checks.
+quoting what you actually said, and that answering a question records it and
+settles the task. 48 checks.
 
 ### Does the generated code compile?
 

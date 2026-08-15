@@ -1,5 +1,6 @@
 import type { AppSpec } from "./app";
 import type { PlainText } from "./plain";
+import type { OpenQuestion } from "./questions";
 
 export type ProductType =
   | "consumer"
@@ -121,6 +122,8 @@ export interface Task {
   featureId?: string;
   /** For review tasks: which screen to open when they go and try it. */
   previewScreenId?: string;
+  /** What Loom needs to know before this can be settled. */
+  question?: OpenQuestion;
   milestone: MilestoneId;
   kind: TaskKind;
   size: TaskSize;
@@ -184,6 +187,8 @@ export interface Project {
   /** Feature id -> checkpoint. */
   checkpoints: Record<string, Checkpoint>;
   feedback: FeedbackNote[];
+  /** Task id -> what the designer answered. This is the app's memory. */
+  decisions: Record<string, string>;
 }
 
 export interface LoomState {

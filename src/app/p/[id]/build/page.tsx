@@ -51,6 +51,7 @@ import type { Task, TaskStatus } from "@/lib/loom/types";
 import { ScreensPanel } from "./screens-panel";
 import { ThemePanel } from "./theme-panel";
 import { CheckpointCard } from "./checkpoint-card";
+import { QuestionBox } from "./question-box";
 
 const STATUS_ICON = { todo: CircleDashed, doing: Circle, done: CircleCheck } as const;
 
@@ -65,14 +66,18 @@ function TaskRow({
   task,
   status,
   blockers,
+  answer,
   onToggle,
   onOpen,
+  onAnswer,
 }: {
   task: Task;
   status: TaskStatus;
   blockers: Task[];
+  answer?: string;
   onToggle: () => void;
   onOpen?: () => void;
+  onAnswer?: (answer: string) => void;
 }) {
   const [showDetail, setShowDetail] = React.useState(false);
   const Icon = STATUS_ICON[status];
@@ -109,7 +114,10 @@ function TaskRow({
         </button>
 
         <div className="min-w-0 flex-1">
-          <p className={cn("text-sm font-medium", status === "done" && "line-through")}>
+          <p
+            data-task-title
+            className={cn("text-sm font-medium", status === "done" && "line-through")}
+          >
             {task.plain.what}
           </p>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
@@ -156,6 +164,15 @@ function TaskRow({
             </button>
           </div>
 
+          {task.question && onAnswer && (status !== "done" || answer) ? (
+            <QuestionBox
+              question={task.question}
+              answer={answer}
+              taskId={task.id}
+              onAnswer={onAnswer}
+            />
+          ) : null}
+
           {showDetail ? (
             <div className="mt-3 space-y-2 border-t pt-3">
               <Markdown source={task.detail} />
@@ -200,6 +217,7 @@ export default function BuildPage() {
     setDesignerName,
     setCheckpoint,
     addFeedback,
+    answerQuestion,
   } = useLoom();
   const project = getProject(params.id);
 
@@ -262,6 +280,7 @@ export default function BuildPage() {
       leafCount:
         project.graph?.nodes.filter((n) => n.kind === "leaf").length ?? 0,
       designerName: project.designerName,
+      decisions: project.decisions,
     });
     const scaffold = generateScaffold({ brief, app, findings, tasks: allTasks, docs });
 
@@ -279,6 +298,9 @@ export default function BuildPage() {
   const show = (screenId?: string) => screenId && setPreviewScreen(screenId);
 
   const needsYou = checkpoints.filter((c) => c.state !== "approved");
+  const openQuestions = tasks.filter(
+    (t) => t.question && statusOf(t, statuses) !== "done"
+  ).length;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -330,6 +352,21 @@ export default function BuildPage() {
                   value="tasks"
                   className="min-h-0 flex-1 space-y-8 overflow-y-auto pt-4 pr-1"
                 >
+                  {openQuestions > 0 ? (
+                    <p
+                      className="rounded-lg border bg-card px-3 py-2 text-sm text-muted-foreground"
+                      data-testid="open-questions"
+                    >
+                      <span className="font-medium text-foreground">
+                        Loom needs to know {openQuestions}{" "}
+                        {openQuestions === 1 ? "thing" : "things"}.
+                      </span>{" "}
+                      They&apos;re marked below. Answering them is how the app
+                      gets designed — and each one unblocks work waiting behind
+                      it.
+                    </p>
+                  ) : null}
+
                   {needsYou.length > 0 ? (
                     <section data-testid="your-turn">
                       <h2 className="mb-3 text-base font-semibold tracking-tight">
@@ -408,6 +445,10 @@ export default function BuildPage() {
                               task={task}
                               status={statusOf(task, statuses)}
                               blockers={blockersOf(task, tasks, statuses)}
+                              answer={project.decisions[task.id]}
+                              onAnswer={(a) =>
+                                answerQuestion(project.id, task.id, a)
+                              }
                               onOpen={
                                 task.previewScreenId
                                   ? () => show(task.previewScreenId)

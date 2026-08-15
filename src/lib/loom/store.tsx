@@ -47,6 +47,7 @@ function blankProject(answers: Answers = {}): Project {
     designerName: "",
     checkpoints: {},
     feedback: [],
+    decisions: {},
   };
 }
 
@@ -67,6 +68,7 @@ interface LoomContextValue extends LoomState {
   setDesignerName: (id: string, name: string) => void;
   setCheckpoint: (id: string, featureId: string, state: CheckpointState) => void;
   addFeedback: (id: string, featureId: string, text: string) => void;
+  answerQuestion: (id: string, taskId: string, answer: string) => void;
 }
 
 const LoomContext = React.createContext<LoomContextValue | null>(null);
@@ -95,6 +97,7 @@ export function LoomProvider({ children }: { children: React.ReactNode }) {
               designerName: p.designerName ?? "",
               checkpoints: p.checkpoints ?? {},
               feedback: p.feedback ?? [],
+              decisions: p.decisions ?? {},
             })),
           });
         }
@@ -255,6 +258,17 @@ export function LoomProvider({ children }: { children: React.ReactNode }) {
     [update]
   );
 
+  /** Answering is how a decision gets made, so it also settles the task. */
+  const answerQuestion = React.useCallback(
+    (id: string, taskId: string, answer: string) =>
+      update(id, (p) => ({
+        ...p,
+        decisions: { ...p.decisions, [taskId]: answer.trim() },
+        taskStatus: { ...p.taskStatus, [taskId]: "done" },
+      })),
+    [update]
+  );
+
   const getProject = React.useCallback(
     (id: string) => state.projects.find((p) => p.id === id),
     [state.projects]
@@ -278,6 +292,7 @@ export function LoomProvider({ children }: { children: React.ReactNode }) {
     setDesignerName,
     setCheckpoint,
     addFeedback,
+    answerQuestion,
   };
 
   return <LoomContext.Provider value={value}>{children}</LoomContext.Provider>;
