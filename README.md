@@ -206,6 +206,42 @@ the server restarts — swapping in a database is a one-file change. And creatin
 brain for a project id that doesn't have one yet is unauthenticated: trust on
 first use. After that, only the owner key works.
 
+## Agents that actually do the work
+
+An agent in the brain isn't a row in a table — you can put a **real Claude
+session** to work as it. From the Build step, give it a job and watch it think:
+
+```
+SAID  I'll read the brain first to check what's already been decided about spacing.
+TOOL  read — looked up "spacing"
+SAID  Spacing is open. Given the context — freelance photographers, personal tool
+      aesthetic (soft 0.65rem corners) — I'll set a spacing scale.
+TOOL  log — logged visual.spacing
+DONE  5 turns, $0.032
+```
+
+That middle step is the point: it reasoned from a decision *somebody else had
+already made* instead of starting from nothing.
+
+**No API key.** It runs through the Claude Agent SDK using your existing Claude
+Code login, so it works if you're signed in to Claude Code and doesn't if you
+aren't.
+
+**The brain is handed over as tools, not a URL.** The session gets exactly two —
+`brain_read` and `brain_log` — and **nothing else**: no filesystem, no shell, no
+network. It can't get the port wrong, and the scope check runs against the agent
+that was actually spawned rather than a token it might mislay.
+
+Asked to do something outside its remit, an agent stops rather than working
+around it. From a real run, a visual design agent asked to change who owns a
+record:
+
+> I can see the brain already decided: **One person owns a shoot** (for solo
+> photographers). But changing ownership from individual to teams is a **data
+> model and product decision**, not a visual design decision.
+
+Nothing changed — and the tool would have refused it even if the agent hadn't.
+
 ## The documentation
 
 Loom writes a plain-language handbook — readable in the Docs tab and exported to
@@ -290,6 +326,9 @@ quoting what you actually said, and that answering a question records it and
 settles the task, and — acting as a real agent over HTTP — that the brain
 refuses out-of-scope writes, refuses contradictions rather than applying them,
 and requires reasoning. 57 checks.
+
+Putting a real Claude session to work costs money and takes about half a minute,
+so it's excluded by default. `SMOKE_AGENTS=1 node scripts/smoke.mjs` includes it.
 
 ### Does the generated code compile?
 

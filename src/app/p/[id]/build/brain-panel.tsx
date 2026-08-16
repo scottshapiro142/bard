@@ -1,7 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Check, Copy, RefreshCw, ShieldAlert, Trash2 } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Play,
+  RefreshCw,
+  ShieldAlert,
+  Trash2,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { AREAS, type Area } from "@/lib/brain/types";
@@ -12,6 +19,7 @@ import { CodeBlock } from "@/components/code-block";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface BrainView {
   projectName: string;
@@ -113,6 +121,9 @@ export function BrainPanel({
   const [issued, setIssued] = React.useState<{ name: string; token: string } | null>(
     null
   );
+  const [working, setWorking] = React.useState<string | null>(null);
+  const [job, setJob] = React.useState("");
+  const [log, setLog] = React.useState<string[]>([]);
 
   const payload = React.useMemo(
     () => genetics({ brief, app, tasks, answers }),
@@ -165,6 +176,61 @@ export function BrainPanel({
       body: JSON.stringify(body),
     });
     await sync();
+  };
+
+  /** Put a real Claude session to work, and watch it think. */
+  const putToWork = async (agentId: string) => {
+    setWorking(agentId);
+    setLog([]);
+    try {
+      const res = await fetch("/api/agents", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ projectId, agentId, task: job }),
+      });
+
+      if (!res.ok || !res.body) {
+        setLog([(await res.json().catch(() => ({}))).error ?? "Couldn't start it."]);
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const event = JSON.parse(line);
+          setLog((prev) => [
+            ...prev,
+            event.type === "tool"
+              ? `· ${event.summary}`
+              : event.type === "said"
+                ? event.text
+                : event.type === "done"
+                  ? `— finished in ${event.turns} turns, $${event.cost.toFixed(3)}`
+                  : event.type === "failed"
+                    ? `— ${event.message}`
+                    : `— started`,
+          ]);
+        }
+      }
+      await sync();
+    } catch (e) {
+      setLog((prev) => [...prev, e instanceof Error ? e.message : "Something went wrong."]);
+    } finally {
+      setWorking(null);
+      setJob("");
+    }
   };
 
   const open = brain?.standoffs.filter((s) => s.state === "open") ?? [];
@@ -310,6 +376,59 @@ export function BrainPanel({
                 {agent.token ? (
                   <div className="mt-2">
                     <CopyLine value={agent.token} label={`${agent.name} key`} />
+                  </div>
+                ) : null}
+
+                {!agent.revoked ? (
+                  <div className="mt-2 space-y-2">
+                    <Textarea
+                      value={working === agent.id ? job : undefined}
+                      defaultValue=""
+                      rows={2}
+                      data-testid={`job-${agent.id}`}
+                      placeholder={`Tell ${agent.name} what to do. It reads the brain first.`}
+                      onChange={(e) => setJob(e.target.value)}
+                      className="resize-none text-sm"
+                      disabled={working !== null}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      data-testid={`run-${agent.id}`}
+                      disabled={working !== null || !job.trim()}
+                      onClick={() => putToWork(agent.id)}
+                    >
+                      <Play className="size-3.5" />
+                      {working === agent.id ? "Working…" : "Put it to work"}
+                    </Button>
+
+                    {working === agent.id || (log.length > 0 && working === null) ? (
+                      <div
+                        className="max-h-64 space-y-1.5 overflow-y-auto rounded-lg border bg-muted/30 p-2.5"
+                        data-testid="agent-log"
+                      >
+                        {log.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            Starting a session…
+                          </p>
+                        ) : (
+                          log.map((line, i) => (
+                            <p
+                              key={i}
+                              className={cn(
+                                "text-xs leading-relaxed",
+                                line.startsWith("·") || line.startsWith("—")
+                                  ? "font-mono text-muted-foreground"
+                                  : "text-foreground/90"
+                              )}
+                            >
+                              {line}
+                            </p>
+                          ))
+                        )}
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </li>

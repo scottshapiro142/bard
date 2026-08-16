@@ -446,6 +446,27 @@ try {
     (await page.locator("[data-standoff]").count()) === 0
   );
 
+  // Putting a real Claude session to work costs money and takes ~30s, so it's
+  // off by default. SMOKE_AGENTS=1 to include it.
+  if (process.env.SMOKE_AGENTS === "1") {
+    await page.getByTestId(`job-${await page.locator("[data-agent]").first().getAttribute("data-agent")}`).fill(
+      "Decide the spacing scale and log it. Check what's already been decided first."
+    );
+    const agentId = await page.locator("[data-agent]").first().getAttribute("data-agent");
+    await page.getByTestId(`run-${agentId}`).click();
+    await page.waitForSelector('[data-testid="agent-log"]', { timeout: 15000 });
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-testid="agent-log"]')
+          ?.textContent?.includes("finished"),
+      { timeout: 240000 }
+    );
+    const runLog = await page.getByTestId("agent-log").innerText();
+    check("A real Claude session reads the brain before deciding", /looked up|read the brain/i.test(runLog));
+    check("It logs what it decided back to the brain", /logged /i.test(runLog));
+  }
+
   // 12. Persistence
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForSelector("[data-checkpoint]", { timeout: 15000 });
