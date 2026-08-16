@@ -48,6 +48,7 @@ function blankProject(answers: Answers = {}): Project {
     checkpoints: {},
     feedback: [],
     decisions: {},
+    brainToken: "",
   };
 }
 
@@ -69,6 +70,7 @@ interface LoomContextValue extends LoomState {
   setCheckpoint: (id: string, featureId: string, state: CheckpointState) => void;
   addFeedback: (id: string, featureId: string, text: string) => void;
   answerQuestion: (id: string, taskId: string, answer: string) => void;
+  setBrainToken: (id: string, token: string) => void;
 }
 
 const LoomContext = React.createContext<LoomContextValue | null>(null);
@@ -98,6 +100,7 @@ export function LoomProvider({ children }: { children: React.ReactNode }) {
               checkpoints: p.checkpoints ?? {},
               feedback: p.feedback ?? [],
               decisions: p.decisions ?? {},
+              brainToken: p.brainToken ?? "",
             })),
           });
         }
@@ -269,6 +272,12 @@ export function LoomProvider({ children }: { children: React.ReactNode }) {
     [update]
   );
 
+  const setBrainToken = React.useCallback(
+    (id: string, brainToken: string) =>
+      update(id, (p) => ({ ...p, brainToken })),
+    [update]
+  );
+
   const getProject = React.useCallback(
     (id: string) => state.projects.find((p) => p.id === id),
     [state.projects]
@@ -293,6 +302,7 @@ export function LoomProvider({ children }: { children: React.ReactNode }) {
     setCheckpoint,
     addFeedback,
     answerQuestion,
+    setBrainToken,
   };
 
   return <LoomContext.Provider value={value}>{children}</LoomContext.Provider>;

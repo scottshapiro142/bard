@@ -157,6 +157,55 @@ so Tailwind utilities compile to `var(--primary)` directly. Setting tokens on a
 wrapper element cascades into everything inside it, so the preview needs no
 iframe and the shadcn components already in the repo pick up your theme for free.
 
+## The brain
+
+Several agents will work on a Loom project — one on UX, one on visual design,
+one writing code — and they don't all exist at the same time. Without a shared
+memory the second one re-decides what the first already settled, and quietly
+undoes it.
+
+So the brain is a **service they call**, not a file they might not read:
+
+```
+GET  /api/brain/{project}/decisions?about=ownership
+POST /api/brain/{project}/decisions
+Authorization: Bearer <the agent's own key>
+GET  /api/brain/_docs          # the API describes itself
+```
+
+Four things it does:
+
+**Answers "what was decided about X?"** — with the reasoning attached, which is
+the part that stops the next agent re-litigating it. If nothing has been decided,
+it says so rather than letting an agent assume.
+
+**Refuses to let agents overwrite each other.** Every decision has a *subject* —
+a stable key like `shoot.ownership`. Two decisions sharing a subject are about
+the same question, so a contradiction is detected exactly rather than guessed at.
+When one is found the write is **refused with a 409** and nothing is lost.
+
+**Controls who's allowed in.** Each agent gets its own key and a list of areas it
+may write to. A visual design agent can log colour decisions; it gets a 403 if it
+tries to change what you store. Reading is never restricted — an agent should
+always be able to find out what was decided.
+
+**Brings disagreements to you.** A refused write becomes a standoff in the Build
+step: what's settled now, what the agent wants, and why. You keep yours or take
+theirs. Same loop as the feature checkpoints.
+
+Logging a decision **requires a `why`** — a 400 without one. A decision without
+its reasoning is just an assertion, and the next agent along will argue with it.
+
+The app syncs its own genetics up: the interview, your answers to Loom's
+questions, the theme, the screens, and what you keep about each record. Those are
+the human's decisions, and they always win — a sync supersedes whatever an agent
+had recorded for the same subject.
+
+**Two honest limits.** Storage is in-memory behind one module, so it resets when
+the server restarts — swapping in a database is a one-file change. And creating a
+brain for a project id that doesn't have one yet is unauthenticated: trust on
+first use. After that, only the owner key works.
+
 ## The documentation
 
 Loom writes a plain-language handbook — readable in the Docs tab and exported to
@@ -238,7 +287,9 @@ prioritized spec, and the build stage — including that renaming a field change
 both the preview and the generated types, that finishing a feature raises a
 checkpoint addressed to you by name, and that your feedback becomes a task
 quoting what you actually said, and that answering a question records it and
-settles the task. 48 checks.
+settles the task, and — acting as a real agent over HTTP — that the brain
+refuses out-of-scope writes, refuses contradictions rather than applying them,
+and requires reasoning. 57 checks.
 
 ### Does the generated code compile?
 
@@ -274,6 +325,9 @@ This is how the missing type import in the list screen was found.
 - `src/lib/loom/docs.ts` — the handbook.
 - `src/lib/loom/scaffold.ts` — generates the starting codebase.
 - `src/components/preview/*` — the live preview.
+- `src/lib/loom/questions.ts` — what Loom asks when it needs clarity.
+- `src/lib/brain/*` — the shared memory: store, genetics, access control.
+- `src/app/api/brain/[...path]/route.ts` — the API agents talk to.
 
 The engine is pure: same answers in, same reviews out. It runs server-side
 through the route handler, with a client-side fallback if that request fails.

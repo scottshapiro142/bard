@@ -355,7 +355,98 @@ try {
     (await page.locator("text=Glossary").count()) > 0
   );
 
-  // 11. Persistence
+  // 11. The brain — shared memory for the agents that build this
+  const projectId = page.url().match(/\/p\/([^/]+)\//)?.[1];
+  await page.getByTestId("tab-brain").click();
+  await page.waitForSelector("[data-decision]", { timeout: 15000 });
+  const recorded = await page.locator("[data-decision]").count();
+  check(
+    "The app's genetics are on the record",
+    recorded > 8,
+    `${recorded} decisions`
+  );
+  check(
+    "What you answered is in there",
+    (await page.locator('[data-decision^="decided."]').count()) > 0
+  );
+
+  // Approve an agent, scoped to visual design only.
+  await page.getByTestId("agent-name").fill("Visual design agent");
+  await page.locator('[data-scope="ux"]').click(); // off
+  await page.locator('[data-scope="visual"]').click(); // on
+  await page.getByTestId("approve-agent").click();
+  await page.waitForSelector("[data-agent]", { timeout: 10000 });
+  check("An agent can be approved with limited scope", true);
+
+  const agentToken = await page.getByTestId("agent-token").first().innerText();
+  check("The agent gets its own key", agentToken.startsWith("loom_"));
+
+  // Act as that agent, against the real API.
+  const outOfScope = await page.request.post(
+    `${BASE}/api/brain/${projectId}/decisions`,
+    {
+      headers: { Authorization: `Bearer ${agentToken}` },
+      data: {
+        subject: "shoot.ownership",
+        area: "data",
+        statement: "Teams own shoots.",
+        why: "Easier for studios.",
+      },
+    }
+  );
+  check(
+    "An agent can't write outside what it was approved for",
+    outOfScope.status() === 403,
+    `HTTP ${outOfScope.status()}`
+  );
+
+  const clash = await page.request.post(
+    `${BASE}/api/brain/${projectId}/decisions`,
+    {
+      headers: { Authorization: `Bearer ${agentToken}` },
+      data: {
+        subject: "visual.corners",
+        area: "visual",
+        statement: "Square corners",
+        why: "Feels more professional.",
+      },
+    }
+  );
+  check(
+    "Contradicting a settled decision is refused, not silently applied",
+    clash.status() === 409,
+    `HTTP ${clash.status()}`
+  );
+
+  const noReason = await page.request.post(
+    `${BASE}/api/brain/${projectId}/decisions`,
+    {
+      headers: { Authorization: `Bearer ${agentToken}` },
+      data: {
+        subject: "visual.motion",
+        area: "visual",
+        statement: "No animation.",
+        why: "",
+      },
+    }
+  );
+  check(
+    "An agent must say why",
+    noReason.status() === 400,
+    `HTTP ${noReason.status()}`
+  );
+
+  await page.getByTestId("brain-sync").click();
+  await page.waitForSelector("[data-standoff]", { timeout: 10000 });
+  check("The disagreement comes to you", true);
+  await page.locator("[data-standoff] button").first().click();
+  await page.waitForTimeout(600);
+  check(
+    "You can settle it, and your decision stands",
+    (await page.locator("[data-standoff]").count()) === 0
+  );
+
+  // 12. Persistence
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForSelector("[data-checkpoint]", { timeout: 15000 });
   check("Checkpoint state survives a reload", true);

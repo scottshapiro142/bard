@@ -189,6 +189,8 @@ export interface Project {
   feedback: FeedbackNote[];
   /** Task id -> what the designer answered. This is the app's memory. */
   decisions: Record<string, string>;
+  /** Owner token for this project's brain. Minted on first sync. */
+  brainToken: string;
 }
 
 export interface LoomState {

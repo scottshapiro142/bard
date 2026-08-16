@@ -52,6 +52,7 @@ import { ScreensPanel } from "./screens-panel";
 import { ThemePanel } from "./theme-panel";
 import { CheckpointCard } from "./checkpoint-card";
 import { QuestionBox } from "./question-box";
+import { BrainPanel } from "./brain-panel";
 
 const STATUS_ICON = { todo: CircleDashed, doing: Circle, done: CircleCheck } as const;
 
@@ -218,6 +219,7 @@ export default function BuildPage() {
     setCheckpoint,
     addFeedback,
     answerQuestion,
+    setBrainToken,
   } = useLoom();
   const project = getProject(params.id);
 
@@ -287,7 +289,7 @@ export default function BuildPage() {
     return { app, tasks: allTasks, checkpoints, docs, scaffold, reviewTasks };
   }, [project, brief, findings, savedApp]);
 
-  if (!project || !model) return null;
+  if (!project || !model || !brief) return null;
 
   const { app, tasks, checkpoints, docs, scaffold, reviewTasks } = model;
   const statuses = project.taskStatus;
@@ -342,6 +344,9 @@ export default function BuildPage() {
                   </TabsTrigger>
                   <TabsTrigger value="docs" data-testid="tab-docs">
                     Docs
+                  </TabsTrigger>
+                  <TabsTrigger value="brain" data-testid="tab-brain">
+                    Brain
                   </TabsTrigger>
                   <TabsTrigger value="scaffold" data-testid="tab-scaffold">
                     Code
@@ -527,6 +532,22 @@ export default function BuildPage() {
                       <Markdown source={doc.body} />
                     </CardContent>
                   </Card>
+                </TabsContent>
+
+                <TabsContent
+                  value="brain"
+                  className="min-h-0 flex-1 overflow-y-auto pt-4 pr-1"
+                >
+                  <BrainPanel
+                    projectId={project.id}
+                    projectName={project.name}
+                    brief={brief}
+                    app={app}
+                    tasks={tasks}
+                    answers={project.decisions}
+                    token={project.brainToken}
+                    onToken={(t) => setBrainToken(project.id, t)}
+                  />
                 </TabsContent>
 
                 <TabsContent
