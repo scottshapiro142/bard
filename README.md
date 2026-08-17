@@ -295,6 +295,37 @@ Everywhere a review found an open question, the generated code carries a
 `TODO(loom)` naming the file that raised it. The output typechecks under
 `strict` — see below.
 
+## Ship — it actually builds the app
+
+The **Ship** tab doesn't describe an app; it builds one. It assembles the
+scaffold into a *complete* Next.js 16 project — the config, the root layout, the
+API routes the forms post to, a home page — writes it to disk, and runs a **real
+production `next build`** against it. Green means the generated app genuinely
+compiles and builds, not that it looks like it would.
+
+With the finishing pass left on, a **real Claude session** then works *inside the
+built project* — real file and shell tools, but fenced to the build folder — and
+closes the mechanical gaps: the missing pages, the wiring, the small states. It
+builds again to prove it still stands. What it will **not** touch is a real
+decision: a `TODO(loom)` about deletion, permissions or pricing is left exactly
+where it is, because those are yours. From one run against the photographer
+example, it added the shared nav and the missing `/photographers` screens, then:
+
+> All the remaining TODOs are genuine product decisions — permissions, auth,
+> settings scope, retry semantics, scale/search, deletion — left exactly as they
+> were.
+
+**Download the code.** The verified project zips up (minus the borrowed
+toolchain) so you can `npm install && npm run dev` it anywhere. It's pinned to
+the same versions Loom itself runs, so what builds here builds the same on your
+machine.
+
+Two things keep it honest and fast: the build lands in a temp dir the dev server
+never watches, and it borrows this workspace's `node_modules` by hardlink rather
+than installing — so a full production build runs in seconds inside a request.
+The session runs through the Claude Agent SDK on your existing Claude Code login;
+no API key.
+
 ## Getting started
 
 ```bash

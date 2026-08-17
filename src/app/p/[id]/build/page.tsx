@@ -53,6 +53,7 @@ import { ThemePanel } from "./theme-panel";
 import { CheckpointCard } from "./checkpoint-card";
 import { QuestionBox } from "./question-box";
 import { BrainPanel } from "./brain-panel";
+import { ShipPanel } from "./ship-panel";
 
 const STATUS_ICON = { todo: CircleDashed, doing: Circle, done: CircleCheck } as const;
 
@@ -351,6 +352,9 @@ export default function BuildPage() {
                   <TabsTrigger value="scaffold" data-testid="tab-scaffold">
                     Code
                   </TabsTrigger>
+                  <TabsTrigger value="ship" data-testid="tab-ship">
+                    Ship
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent
@@ -587,6 +591,20 @@ export default function BuildPage() {
                     code={file.contents}
                     filename={file.path}
                     language={file.language as CodeLanguage}
+                  />
+                </TabsContent>
+
+                <TabsContent
+                  value="ship"
+                  className="min-h-0 flex-1 overflow-y-auto pt-4 pr-1"
+                >
+                  <ShipPanel
+                    projectId={project.id}
+                    name={project.name}
+                    answers={project.answers}
+                    app={app}
+                    designerName={project.designerName}
+                    decisions={project.decisions}
                   />
                 </TabsContent>
               </Tabs>

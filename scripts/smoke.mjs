@@ -532,6 +532,80 @@ try {
   );
 
 
+  // 9. Loom actually builds the app — assemble a real Next.js project and run a
+  // real production build of it. The Claude finishing pass is left off: a smoke
+  // check must be deterministic and free, and the deterministic build is what
+  // guarantees the generated project stands up on its own.
+  const buildRes = await fetch(`${BASE}/api/build`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      projectId: "smoke-photographer",
+      name: "Smoke photographer",
+      agent: false,
+      answers: {
+        product:
+          "A booking page for freelance photographers. Clients pick a slot, pay a deposit, and get a shoot brief back.",
+        who: "Freelance photographers who shoot 2–6 paid jobs a month.",
+        job: "Send a client a link that takes a deposit and locks a date.",
+        type: "consumer",
+        today: "A Google Sheet and a Venmo request they chase for two weeks.",
+        firstRun: "They see their own booking page and can copy the link.",
+        data: "Photographers, clients, shoots, deposits, briefs",
+        platform: "web,ios",
+        scale: "mvp",
+        worry: "That photographers won't trust us to hold a deposit.",
+        outOfScope: "Contracts, invoicing, galleries.",
+      },
+    }),
+  });
+
+  const events = [];
+  if (buildRes.ok && buildRes.body) {
+    const reader = buildRes.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (line) events.push(JSON.parse(line));
+      }
+    }
+  }
+
+  const files = events.filter((e) => e.type === "file").map((e) => e.path);
+  const verified = events.find((e) => e.type === "verified");
+  const doneEv = events.find((e) => e.type === "done");
+
+  check(
+    "The build assembles a complete, runnable project",
+    files.includes("package.json") &&
+      files.includes("app/layout.tsx") &&
+      files.some((p) => p.startsWith("app/api/")),
+    `${files.length} files`
+  );
+  check(
+    "A real production build of the generated app passes",
+    verified?.ok === true && doneEv?.ok === true,
+    verified ? `verified=${verified.ok}` : "no verified event"
+  );
+
+  // The download is the verified project, minus the borrowed toolchain.
+  const zip = await fetch(
+    `${BASE}/api/build/download?projectId=smoke-photographer`
+  );
+  const bytes = zip.ok ? (await zip.arrayBuffer()).byteLength : 0;
+  check(
+    "The verified project downloads as a zip",
+    zip.ok && zip.headers.get("content-type") === "application/zip" && bytes > 2000,
+    `${bytes} bytes`
+  );
+
 } catch (error) {
   check("Run completed without throwing", false, error.message);
 } finally {
