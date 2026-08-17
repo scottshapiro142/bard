@@ -16,6 +16,7 @@ import {
 import { useLoom } from "@/lib/loom/store";
 import { REFERENCE_YAML } from "@/lib/loom/yaml";
 import { interviewProgress } from "@/lib/loom/interview";
+import { EXAMPLES } from "@/lib/loom/example";
 import { LoomWordmark } from "@/components/loom-logo";
 import { CodeBlock } from "@/components/code-block";
 import { Button } from "@/components/ui/button";
@@ -56,7 +57,8 @@ export default function HomePage() {
     useLoom();
 
   const start = () => router.push(`/p/${createProject()}/interview`);
-  const example = () => router.push(`/p/${createExampleProject()}/graph`);
+  const example = (id?: string) =>
+    router.push(`/p/${createExampleProject(id)}/graph`);
 
   return (
     <div className="min-h-dvh">
@@ -94,11 +96,32 @@ export default function HomePage() {
               <Button
                 size="lg"
                 variant="outline"
-                onClick={example}
+                onClick={() => example()}
                 data-testid="load-example"
               >
                 Load a filled-in example
               </Button>
+            </div>
+
+            <div className="mt-4 space-y-1.5">
+              <p className="text-xs text-muted-foreground">
+                Two worked examples, deliberately unalike — the reviews, the
+                wording and the code all come out different:
+              </p>
+              {EXAMPLES.map((e) => (
+                <button
+                  key={e.id}
+                  type="button"
+                  onClick={() => example(e.id)}
+                  data-testid={`example-${e.id}`}
+                  className="block w-full rounded-lg border px-3 py-2 text-left transition-colors hover:border-primary/50 hover:bg-accent/30"
+                >
+                  <span className="block text-sm font-medium">{e.label}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {e.note}
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
 

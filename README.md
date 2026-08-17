@@ -303,7 +303,11 @@ npm run dev      # http://localhost:3000
 ```
 
 Click **Load a filled-in example** on the home page to see a finished graph
-without answering eleven questions first.
+without answering eleven questions first. There are two, deliberately unalike —
+a consumer booking page with money in the main flow, and an internal hospital
+ward rota with roles, going to production, on mobile, and with a safety
+consequence rather than a commercial one. The reviews, the wording and the
+generated code all come out different.
 
 ## Build & test
 
@@ -325,7 +329,9 @@ checkpoint addressed to you by name, and that your feedback becomes a task
 quoting what you actually said, and that answering a question records it and
 settles the task, and — acting as a real agent over HTTP — that the brain
 refuses out-of-scope writes, refuses contradictions rather than applying them,
-and requires reasoning. 57 checks.
+and requires reasoning. It also runs the second example end to end, because
+"does this still read well for a product unlike the first one" is the failure
+mode that matters most and can't be caught by reading the code. 62 checks.
 
 Putting a real Claude session to work costs money and takes about half a minute,
 so it's excluded by default. `SMOKE_AGENTS=1 node scripts/smoke.mjs` includes it.

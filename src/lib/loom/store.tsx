@@ -4,7 +4,7 @@ import * as React from "react";
 
 import { compileGraph } from "./compile";
 import { firstSentence } from "./brief";
-import { EXAMPLE_ANSWERS } from "./example";
+import { EXAMPLE_ANSWERS, EXAMPLES } from "./example";
 import type {
   Answers,
   CheckpointState,
@@ -55,7 +55,7 @@ function blankProject(answers: Answers = {}): Project {
 interface LoomContextValue extends LoomState {
   ready: boolean;
   createProject: () => string;
-  createExampleProject: () => string;
+  createExampleProject: (exampleId?: string) => string;
   getProject: (id: string) => Project | undefined;
   deleteProject: (id: string) => void;
   setAnswer: (id: string, questionId: string, value: string) => void;
@@ -139,10 +139,12 @@ export function LoomProvider({ children }: { children: React.ReactNode }) {
     return project.id;
   }, []);
 
-  const createExampleProject = React.useCallback(() => {
-    const project = blankProject(EXAMPLE_ANSWERS);
+  const createExampleProject = React.useCallback((exampleId?: string) => {
+    const answers =
+      EXAMPLES.find((e) => e.id === exampleId)?.answers ?? EXAMPLE_ANSWERS;
+    const project = blankProject(answers);
     project.interviewComplete = true;
-    project.graph = compileGraph(EXAMPLE_ANSWERS);
+    project.graph = compileGraph(answers);
     setState((s) => ({ ...s, projects: [project, ...s.projects] }));
     return project.id;
   }, []);

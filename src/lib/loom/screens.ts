@@ -22,8 +22,29 @@ export interface Screen {
   entity?: string;
 }
 
-const PERSON_WORDS =
-  /user|account|member|profile|customer|client|person|people|owner|admin|team/i;
+/**
+ * Nouns that name a person rather than a thing.
+ *
+ * Deliberately an explicit list rather than a suffix rule: "-er" would catch
+ * Order, Folder and Reminder, and getting this wrong picks the wrong subject
+ * for the entire app. Domain roles matter — a rota app lists "nurses" first and
+ * is still about shifts.
+ */
+const PERSON_WORDS = [
+  "user", "account", "member", "profile", "person", "people", "owner", "admin",
+  "team", "staff", "employee", "worker", "manager", "customer", "client",
+  "contact", "lead", "candidate", "applicant", "subscriber", "attendee",
+  "participant", "visitor", "guest", "host", "seller", "buyer", "vendor",
+  "nurse", "doctor", "clinician", "patient", "student", "pupil", "teacher",
+  "tutor", "driver", "rider", "tenant", "landlord", "artist", "photographer",
+  "developer", "designer", "author", "editor", "coach", "athlete", "player",
+];
+
+/** Does this entity name a person? */
+export function isPersonLike(name: string): boolean {
+  const words = singular(name).toLowerCase().split(/\s+/);
+  return words.some((w) => PERSON_WORDS.includes(singular(w)));
+}
 
 /**
  * The thing the product is actually about.
@@ -37,7 +58,7 @@ export function primaryEntity(brief: Brief): string {
   const actorWords = brief.actor.split(/\s+/);
   const thing = brief.entities.find(
     (e) =>
-      !PERSON_WORDS.test(e) &&
+      !isPersonLike(e) &&
       !actorWords.some((w) => w.length > 3 && e.toLowerCase().includes(w))
   );
   return thing ?? brief.entities[0];
@@ -148,9 +169,9 @@ export function fieldsFor(entity: string, brief: Brief): [string, string][] {
     ["createdAt", "number"],
   ];
 
-  const isPerson =
-    /user|account|member|profile|customer|client|person|owner|admin/i.test(name) ||
-    brief.actor.includes(name.toLowerCase());
+  // One shared notion of "is this a person", so the type, the owner field and
+  // the choice of subject can't disagree with each other.
+  const isPerson = isPersonLike(name) || brief.actor.includes(name.toLowerCase());
 
   if (isPerson) {
     fields.push(["name", "string"], ["email", "string"]);
@@ -166,9 +187,7 @@ export function fieldsFor(entity: string, brief: Brief): [string, string][] {
 
   // Everything that isn't the identity entity needs an owner. The data model
   // review flags exactly this when it's missing.
-  const owner = brief.entities.find((e) =>
-    /user|account|member|profile|owner/i.test(e)
-  );
+  const owner = brief.entities.find((e) => isPersonLike(e));
   if (!isPerson) {
     fields.push([`${(owner ?? brief.entities[0]).toLowerCase()}Id`, "string"]);
   }

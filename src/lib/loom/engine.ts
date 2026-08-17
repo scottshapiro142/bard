@@ -2,6 +2,7 @@ import {
   clause,
   deriveBrief,
   excerpt,
+  listOf,
   phrase,
   plural,
   scaleLabel,
@@ -510,7 +511,7 @@ function reviewEdgeCases(brief: Brief): NodeResult {
         ? "Offline behaviour is undefined on a mobile target"
         : "Flaky connections are unhandled",
       brief.mobile
-        ? `This ships on ${brief.platforms.map(platformLabel).join(" and ")}, where losing signal mid-flow is normal, not exceptional. If the primary flow can't survive a tunnel, it will fail in front of real users on day one. Decide now: queue and retry, block with a clear state, or save a local draft.`
+        ? `This ships on ${listOf(brief.platforms.map(platformLabel))}, where losing signal mid-flow is normal, not exceptional. If the primary flow can't survive a tunnel, it will fail in front of real users on day one. Decide now: queue and retry, block with a clear state, or save a local draft.`
         : "The flow assumes every request completes. A slow or dropped request currently has no designed state, so users will double-submit into it.",
       ["offline", "platform"]
     ),
@@ -905,7 +906,7 @@ function reviewAdoption(brief: Brief, answers: Answers): NodeResult {
 }
 
 function reviewPlatformNative(brief: Brief): NodeResult {
-  const targets = brief.platforms.map(platformLabel).join(" and ");
+  const targets = listOf(brief.platforms.map(platformLabel));
 
   const findings: Finding[] = [
     finding(

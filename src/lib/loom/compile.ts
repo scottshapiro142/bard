@@ -1,4 +1,4 @@
-import { clause, deriveBrief, platformLabel, slugify } from "./brief";
+import { clause, deriveBrief, listOf, platformLabel, slugify } from "./brief";
 import type { Answers, Graph, GraphNode } from "./types";
 
 /**
@@ -131,7 +131,7 @@ export function compileGraph(answers: Answers): Graph {
       leaf(
         "platform_native",
         "Platform fit",
-        `Review this against native conventions on ${brief.platforms.map(platformLabel).join(" and ")} — navigation, permission prompts, and what happens with no signal. Be specific.`,
+        `Review this against native conventions on ${listOf(brief.platforms.map(platformLabel))} — navigation, permission prompts, and what happens with no signal. Be specific.`,
         "platform_native.md"
       )
     );

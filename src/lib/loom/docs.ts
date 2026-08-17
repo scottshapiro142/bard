@@ -1,4 +1,4 @@
-import { plural, scaleLabel, platformLabel, singular } from "./brief";
+import { listOf, plural, scaleLabel, platformLabel, singular } from "./brief";
 import { enabledScreens, primaryOf, type AppSpec, type Field } from "./app";
 import { FIELD_TYPES, SCREEN_STATES } from "./app";
 import { GLOSSARY } from "./plain";
@@ -86,7 +86,7 @@ export function generateDocs(input: DocInput): DocPage[] {
       ``,
       `## Where it runs`,
       ``,
-      `${brief.platforms.map(platformLabel).join(" and ") || "The web"}. We're building it to be ${scaleLabel(brief.scale).toLowerCase()}.`,
+      `${listOf(brief.platforms.map(platformLabel)) || "The web"}. We're building it to be ${scaleLabel(brief.scale).toLowerCase()}.`,
       ``,
       `## What we're deliberately not building`,
       ``,

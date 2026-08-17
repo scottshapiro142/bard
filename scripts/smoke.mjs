@@ -483,6 +483,55 @@ try {
   await page.waitForSelector("text=Spec ready", { timeout: 10000 });
   check("Projects persist across navigation", true);
 
+  // A deliberately different product, because everything above was tuned
+  // against one example. This is where generic or mangled wording shows up.
+  await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+  await page.getByTestId("example-ward-rota").click();
+  await page.waitForURL(/\/graph$/, { timeout: 10000 });
+
+  const wardYaml = await page.locator("pre").first().innerText();
+  check(
+    "A different product shape gets different reviews",
+    wardYaml.includes("roles:") &&
+      wardYaml.includes("scale_risk:") &&
+      wardYaml.includes("platform_native:")
+  );
+  check(
+    "Quoted answers don't break off mid-phrase",
+    !/\b(the|a|an|of|to|for|with|without|who|that|and)\s*(—|-)\s*(step|is that)/i.test(
+      wardYaml
+    ),
+    wardYaml.match(/task: "Review who this is for:[^"]*/)?.[0]?.slice(0, 90) ?? ""
+  );
+
+  await page.getByTestId("go-to-run").click();
+  await page.waitForSelector('[data-testid="go-to-spec"]', { timeout: 60000 });
+  await page.getByTestId("go-to-spec").click();
+  await page.getByTestId("go-to-build").click();
+  await page.waitForSelector('[data-testid="preview-surface"]', { timeout: 20000 });
+  await page.getByTestId("tab-scaffold").click();
+  await page.waitForTimeout(400);
+  const wardFiles = (await page.locator('[data-testid^="scaffold-"]').allInnerTexts()).join(" ");
+  check(
+    "The app is built around the work, not the people doing it",
+    wardFiles.includes("app/shifts/") && !wardFiles.includes("app/nurses/page.tsx".replace("nurses","nurses/[id]")),
+    wardFiles.match(/app\/\w+\/page\.tsx/g)?.join(", ") ?? ""
+  );
+
+  await page.getByTestId("tab-tasks").click();
+  await page.waitForTimeout(300);
+  const wardText = await page.locator("main").innerText();
+  check(
+    "Plural nouns are singularised correctly",
+    !/\bnurs\b/i.test(wardText),
+    /\bnurs\b/i.test(wardText) ? "found 'nurs'" : "no mangled singulars"
+  );
+  check(
+    "The wording is about this product, not the other example",
+    /shift/i.test(wardText) && !/photograph/i.test(wardText)
+  );
+
+
 } catch (error) {
   check("Run completed without throwing", false, error.message);
 } finally {

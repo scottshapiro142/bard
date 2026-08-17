@@ -50,7 +50,10 @@ export function singular(word: string) {
   if (w.length <= 3) return w;
   if (/ies$/i.test(w)) return w.slice(0, -3) + "y";
   if (/(ss|us|is|as)$/i.test(w)) return w;
-  if (/(ches|shes|xes|zes|ses)$/i.test(w)) return w.slice(0, -2);
+  // Only drop "es" where the stem needs it — "classes" -> "class",
+  // "dishes" -> "dish", "boxes" -> "box". A bare "-ses" is usually a plain
+  // plural of a word ending in "e": "nurses" -> "nurse", not "nurs".
+  if (/(sses|shes|ches|xes|zes)$/i.test(w)) return w.slice(0, -2);
   if (/s$/i.test(w)) return w.slice(0, -1);
   return w;
 }
@@ -109,15 +112,46 @@ export function firstSentence(text: string): string {
   return (match ? match[0] : trimmed).trim().replace(/[.!?]+$/, "");
 }
 
+/** Words a quoted phrase must never end on — they leave the reader hanging. */
+const DANGLING =
+  /\s+(a|an|the|and|or|but|of|to|for|with|without|that|which|who|whom|whose|in|on|at|by|from|as|if|when|while|so|because|their|its|his|her|your|our|my)$/i;
+
 /**
  * Trim a free-text answer down to something that reads inside a sentence.
- * Cuts at a word boundary and leaves no ellipsis, so a following period or
- * dash doesn't collide with one.
+ *
+ * Cuts at a clause boundary where there is one, because chopping at a word
+ * boundary produces "…and the nurses who" — which reads as a bug rather than
+ * a quote. Leaves no ellipsis, so a following dash or period doesn't collide.
  */
 export function clause(text: string, max = 90): string {
   const s = firstSentence(text);
   if (s.length <= max) return s.toLowerCase();
-  return s.slice(0, max).replace(/\s+\S*$/, "").toLowerCase();
+
+  // Prefer to stop where the sentence itself pauses.
+  const head = s.slice(0, max + 1);
+  const boundary = Math.max(
+    head.lastIndexOf(", "),
+    head.lastIndexOf("; "),
+    head.lastIndexOf(" — "),
+    head.lastIndexOf(" - ")
+  );
+  let cut =
+    boundary > max * 0.45
+      ? head.slice(0, boundary)
+      : head.replace(/\s+\S*$/, "");
+
+  // "…paid jobs a month and handle" — a conjunction with a single word after it
+  // is always something we chopped in half. More than that is a real second
+  // clause and worth keeping.
+  cut = cut.replace(/\s+(and|or|but|plus)\s+\S+$/i, "");
+
+  // Never leave the reader on a preposition or article.
+  let previous = "";
+  while (cut !== previous) {
+    previous = cut;
+    cut = cut.replace(DANGLING, "");
+  }
+  return cut.toLowerCase();
 }
 
 /** Same trim, but marked as truncated — for text shown inside quote marks. */
@@ -170,6 +204,13 @@ export function deriveBrief(answers: Answers): Brief {
       install: answers.install ?? "",
     },
   };
+}
+
+/** "A", "A and B", "A, B and C" — never "A and B and C". */
+export function listOf(items: string[]): string {
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
 export function platformLabel(value: string) {
